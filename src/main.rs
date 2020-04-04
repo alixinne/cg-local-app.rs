@@ -10,6 +10,8 @@ use std::path::PathBuf;
 
 use structopt::StructOpt;
 
+use hotwatch::{Event, Hotwatch};
+
 use futures_util::future::FutureExt;
 use futures_util::select;
 use futures_util::sink::SinkExt;
@@ -19,6 +21,8 @@ use async_std::{
     prelude::*,
     task,
 };
+
+use async_tungstenite::tungstenite;
 
 #[derive(Debug, StructOpt)]
 struct Opts {
@@ -64,9 +68,9 @@ enum ServerMessage {
     },
 }
 
-impl Into<async_tungstenite::tungstenite::Message> for ServerMessage {
-    fn into(self) -> async_tungstenite::tungstenite::Message {
-        async_tungstenite::tungstenite::Message::Text(serde_json::to_string(&self).unwrap())
+impl Into<tungstenite::Message> for ServerMessage {
+    fn into(self) -> tungstenite::Message {
+        tungstenite::Message::Text(serde_json::to_string(&self).unwrap())
     }
 }
 
@@ -92,7 +96,7 @@ async fn handle_accept(
     stream: TcpStream,
     state: StateHandle,
     rx_ws: Arc<Mutex<async_std::sync::Receiver<ServerMessage>>>,
-) -> async_tungstenite::tungstenite::Result<()> {
+) -> tungstenite::Result<()> {
     let mut ws_stream = async_tungstenite::accept_async(stream).await?;
 
     info!("accepting connection from {}", peer);
@@ -108,7 +112,7 @@ async fn handle_accept(
                     let msg = msg?;
                     debug!("msg: {:?}", msg);
 
-                    if let async_tungstenite::tungstenite::Message::Text(msg) = msg {
+                    if let tungstenite::Message::Text(msg) = msg {
                         let parsed: ServerMessage = serde_json::from_str(&msg).expect("failed to parse object");
 
                         match parsed {
@@ -161,7 +165,7 @@ async fn accept_connection(
     state: StateHandle,
     rx_ws: Arc<Mutex<async_std::sync::Receiver<ServerMessage>>>,
 ) {
-    use async_tungstenite::tungstenite::Error;
+    use tungstenite::Error;
 
     let result = handle_accept(peer, stream, state, rx_ws).await;
     info!("connection from {} terminated", peer);
@@ -172,10 +176,7 @@ async fn accept_connection(
     }
 }
 
-async fn handle_deny(
-    peer: SocketAddr,
-    stream: TcpStream,
-) -> async_tungstenite::tungstenite::Result<()> {
+async fn handle_deny(peer: SocketAddr, stream: TcpStream) -> tungstenite::Result<()> {
     let mut ws_stream = async_tungstenite::accept_async(stream).await?;
 
     info!("denying connection from {}", peer);
@@ -189,7 +190,7 @@ async fn handle_deny(
 }
 
 async fn deny_connection(peer: SocketAddr, stream: TcpStream) {
-    use async_tungstenite::tungstenite::Error;
+    use tungstenite::Error;
 
     match handle_deny(peer, stream).await {
         Ok(_) | Err(Error::ConnectionClosed) | Err(Error::Protocol(_)) | Err(Error::Utf8) => (),
@@ -239,43 +240,38 @@ fn main(opts: Opts) -> Result<()> {
 
     let state = State::new(&opts);
 
-    let mut hotwatch = hotwatch::Hotwatch::new()?;
+    let mut hotwatch = Hotwatch::new()?;
 
     let target = opts.target.clone();
     let play = opts.play;
 
-    hotwatch.watch(
-        state.target.parent().unwrap(),
-        move |event: hotwatch::Event| {
-            use hotwatch::Event;
+    hotwatch.watch(state.target.parent().unwrap(), move |event: Event| {
+        debug!("hotwatch: {:?}", event);
 
-            debug!("hotwatch: {:?}", event);
+        match event {
+            Event::NoticeWrite(path) | Event::Create(path) | Event::Write(path) => {
+                if let Ok(target) = std::fs::canonicalize(&target) {
+                    if path == target {
+                        match std::fs::read_to_string(&target) {
+                            Ok(code) => {
+                                info!("uploading code to IDE");
 
-            match event {
-                Event::NoticeWrite(path) | Event::Create(path) | Event::Write(path) => {
-                    if let Ok(target) = std::fs::canonicalize(&target) {
-                        if path == target {
-                            match std::fs::read_to_string(&target) {
-                                Ok(code) => {
-                                    info!("uploading code to IDE");
-
-                                    task::block_on(
-                                        tx_ws.send(ServerMessage::UpdateCode { code, play }),
-                                    );
-                                }
-                                Err(error) => {
-                                    task::block_on(tx_ws.send(ServerMessage::Error {
-                                        message: error.to_string(),
-                                    }));
-                                }
+                                task::block_on(
+                                    tx_ws.send(ServerMessage::UpdateCode { code, play }),
+                                );
+                            }
+                            Err(error) => {
+                                task::block_on(tx_ws.send(ServerMessage::Error {
+                                    message: error.to_string(),
+                                }));
                             }
                         }
                     }
                 }
-                _ => {}
             }
-        },
-    )?;
+            _ => {}
+        }
+    })?;
 
     task::block_on(run_loop(state, Arc::new(Mutex::new(rx_ws)), opts.bind))
 }
