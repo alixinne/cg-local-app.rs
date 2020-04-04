@@ -8,6 +8,8 @@ extern crate serde_derive;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 
+use error_chain::error_chain;
+
 use structopt::StructOpt;
 
 use hotwatch::{Event, Hotwatch};
@@ -39,7 +41,13 @@ struct Opts {
     play: bool,
 }
 
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+error_chain! {
+    foreign_links {
+        Io(std::io::Error);
+        Hotwatch(hotwatch::Error);
+        WebSocket(tungstenite::Error);
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "action", content = "payload", rename_all = "kebab-case")]
@@ -96,7 +104,7 @@ async fn handle_accept(
     stream: TcpStream,
     state: StateHandle,
     rx_ws: Arc<Mutex<async_std::sync::Receiver<ServerMessage>>>,
-) -> tungstenite::Result<()> {
+) -> Result<()> {
     let mut ws_stream = async_tungstenite::accept_async(stream).await?;
 
     info!("accepting connection from {}", peer);
@@ -113,32 +121,41 @@ async fn handle_accept(
                     debug!("msg: {:?}", msg);
 
                     if let tungstenite::Message::Text(msg) = msg {
-                        let parsed: ServerMessage = serde_json::from_str(&msg).expect("failed to parse object");
+                        let parsed: ServerMessage = serde_json::from_str(&msg);
 
                         match parsed {
-                            ServerMessage::Details { title, question_id } => {
-                                info!("working on {} (id {})", title, question_id);
+                            Ok(msg) => match msg {
+                                ServerMessage::Details { title, question_id } => {
+                                    info!("working on {} (id {})", title, question_id);
 
-                                // TODO: "Initialize controller"
-                                ws_stream.send(ServerMessage::AppReady.into()).await?;
+                                    // TODO: "Initialize controller"
+                                    ws_stream.send(ServerMessage::AppReady.into()).await?;
 
-                                if state.lock().await.download_at_start {
-                                    ws_stream.send(ServerMessage::SendCode.into()).await?;
-                                }
-                            }
-                            ServerMessage::Code { code } => {
-                                match std::fs::write(&state.lock().await.target, code) {
-                                    Ok(_) => info!("updated code from IDE"),
-                                    Err(err) => {
-                                        let message = err.to_string();
-                                        error!("{}", message);
-                                        ws_stream
-                                            .send(ServerMessage::Error { message }.into())
-                                            .await?
+                                    if state.lock().await.download_at_start {
+                                        ws_stream.send(ServerMessage::SendCode.into()).await?;
                                     }
                                 }
+                                ServerMessage::Code { code } => {
+                                    match std::fs::write(&state.lock().await.target, code) {
+                                        Ok(_) => info!("updated code from IDE"),
+                                        Err(err) => {
+                                            let message = err.to_string();
+                                            error!("{}", message);
+                                            ws_stream
+                                                .send(ServerMessage::Error { message }.into())
+                                                .await?
+                                        }
+                                    }
+                                }
+                                other => {
+                                    warn!("unexpected message: {:?}", other);
+                                    ws_stream.send(ServerMessage::Error { message: format!("unexpected message") }.into()).await?;
+                                }
+                            },
+                            Err(err) => {
+                                error!("failed to parse message: {}", err);
+                                ws_stream.send(ServerMessage::Error { message: err.to_string() }.into()).await?;
                             }
-                            other => debug!("parsed: {:?}", other),
                         }
                     }
                 } else {
@@ -164,19 +181,20 @@ async fn accept_connection(
     stream: TcpStream,
     state: StateHandle,
     rx_ws: Arc<Mutex<async_std::sync::Receiver<ServerMessage>>>,
-) {
-    use tungstenite::Error;
-
-    let result = handle_accept(peer, stream, state, rx_ws).await;
-    info!("connection from {} terminated", peer);
-
-    match result {
-        Ok(_) | Err(Error::ConnectionClosed) | Err(Error::Protocol(_)) | Err(Error::Utf8) => (),
-        err => error!("error processing connection: {:?}", err),
+) -> Result<()> {
+    if let Err(e) = handle_accept(peer, stream, state, rx_ws).await {
+        match e {
+            Error(ErrorKind::WebSocket(tungstenite::Error::ConnectionClosed), _)
+            | Error(ErrorKind::WebSocket(tungstenite::Error::Protocol(_)), _)
+            | Error(ErrorKind::WebSocket(tungstenite::Error::Utf8), _) => (),
+            err => error!("error processing connection: {:?}", err),
+        }
     }
+
+    Ok(())
 }
 
-async fn handle_deny(peer: SocketAddr, stream: TcpStream) -> tungstenite::Result<()> {
+async fn handle_deny(peer: SocketAddr, stream: TcpStream) -> Result<()> {
     let mut ws_stream = async_tungstenite::accept_async(stream).await?;
 
     info!("denying connection from {}", peer);
@@ -189,13 +207,17 @@ async fn handle_deny(peer: SocketAddr, stream: TcpStream) -> tungstenite::Result
     Ok(())
 }
 
-async fn deny_connection(peer: SocketAddr, stream: TcpStream) {
-    use tungstenite::Error;
-
-    match handle_deny(peer, stream).await {
-        Ok(_) | Err(Error::ConnectionClosed) | Err(Error::Protocol(_)) | Err(Error::Utf8) => (),
-        err => error!("error processing connection: {:?}", err),
+async fn deny_connection(peer: SocketAddr, stream: TcpStream) -> Result<()> {
+    if let Err(e) = handle_deny(peer, stream).await {
+        match e {
+            Error(ErrorKind::WebSocket(tungstenite::Error::ConnectionClosed), _)
+            | Error(ErrorKind::WebSocket(tungstenite::Error::Protocol(_)), _)
+            | Error(ErrorKind::WebSocket(tungstenite::Error::Utf8), _) => (),
+            err => error!("error processing connection: {:?}", err),
+        }
     }
+
+    Ok(())
 }
 
 async fn run_loop(
