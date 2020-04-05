@@ -30,7 +30,7 @@ cargo install --path .
 ### Usage
 
 ```rust
-cg-local-app 0.1.0
+cg-local-app 0.1.1
 Vincent Tavernier <vince.tavernier@gmail.com>
 Rust application for CG Local
 
