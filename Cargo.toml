@@ -3,8 +3,18 @@ name = "cg-local-app"
 version = "0.1.0"
 authors = ["Vincent Tavernier <vince.tavernier@gmail.com>"]
 edition = "2018"
+description = "Rust application for CG Local"
+documentation = "https://docs.rs/cg-local-app/"
+readme = "README.md"
+homepage = "https://github.com/vtavernier/cg-local-app.rs"
+repository = "https://github.com/vtavernier/cg-local-app.rs.git"
+license = "MIT"
+keywords = []
+categories = []
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[badges]
+appveyor = { repository = "vtavernier/cg-local-app.rs" }
+maintenance = { status = "actively-developed" }
 
 [dependencies]
 log = "0.4"

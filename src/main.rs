@@ -1,3 +1,62 @@
+//! Rust implementation of the client-side application for the [CG
+//! Local](https://www.codingame.com/forum/t/cg-local/10359) extension. This is a drop-in
+//! replacement for the original [Java application](https://github.com/jmerle/cg-local-app) which
+//! works with the original [browser extension](https://github.com/jmerle/cg-local-ext).
+//!
+//! ## Install
+//!
+//! ### Pre-built packages
+//!
+//! Check the [releases](https://github.com/vtavernier/cg-local-app.rs/releases) for binaries from
+//! your operating system.
+//!
+//! ### Using cargo
+//!
+//! ```bash
+//! cargo install --force cg-local-app
+//! ```
+//!
+//! ### From source
+//!
+//! ```bash
+//! git clone https://github.com/vtavernier/cg-local-app.rs.git && cd cg-local-app.rs
+//! cargo install --path .
+//! ```
+//!
+//! ## Usage
+//!
+//! ```
+//! cg-local-app 0.1.0
+//! Vincent Tavernier <vince.tavernier@gmail.com>
+//! Rust application for CG Local
+//! 
+//! USAGE:
+//!     cg-local-app [FLAGS] [OPTIONS] --target <target>
+//! 
+//! FLAGS:
+//!     -d, --download    Download the file from the IDE before synchronizing
+//!     -h, --help        Prints help information
+//!         --no-gui      Disable text user interface
+//!     -p, --play        Auto-play questions on upload
+//!     -V, --version     Prints version information
+//! 
+//! OPTIONS:
+//!     -b, --bind <bind>        Address to bind to for the extension. Shouldn't need to be changed [default: 127.0.0.1:53135]
+//!     -t, --target <target>    Path to the target file to synchronize with the IDE
+//! ```
+//!
+//! ## Examples
+//!
+//! ```bash
+//! # Synchronize main.rs with the IDE, enable auto-play by default
+//! cg-local-app -p -t main.rs
+//! ```
+//!
+//! ## Status
+//!
+//! Missing features:
+//! * Two-way synchronization
+
 #![recursion_limit = "512"]
 
 #[macro_use]
@@ -28,20 +87,26 @@ use async_std::{
 use async_tungstenite::tungstenite;
 
 #[derive(Debug, StructOpt)]
+#[structopt(author, about)]
 pub struct Opts {
+    /// Address to bind to for the extension. Shouldn't need to be changed.
     #[structopt(short, long, default_value = "127.0.0.1:53135")]
     bind: String,
 
+    /// Path to the target file to synchronize with the IDE.
     #[structopt(short, long)]
     target: PathBuf,
 
+    /// Download the file from the IDE before synchronizing.
     #[structopt(short, long)]
     download: bool,
 
+    /// Auto-play questions on upload.
     #[structopt(short, long)]
     play: bool,
 
-    #[structopt(short, long)]
+    /// Disable text user interface
+    #[structopt(long)]
     no_gui: bool,
 }
 
