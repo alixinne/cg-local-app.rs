@@ -23,4 +23,5 @@ serde = "1"
 serde_derive = "1"
 serde_json = "1"
 hotwatch = "0.4"
+cursive = { version = "0.14", default-features = false, features = ["crossterm-backend"] }
 error-chain = "0.12"
