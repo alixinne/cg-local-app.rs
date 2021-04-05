@@ -29,17 +29,17 @@
 //! cg-local-app 0.1.1
 //! Vincent Tavernier <vince.tavernier@gmail.com>
 //! Rust application for CG Local
-//! 
+//!
 //! USAGE:
 //!     cg-local-app [FLAGS] [OPTIONS] --target <target>
-//! 
+//!
 //! FLAGS:
 //!     -d, --download    Download the file from the IDE before synchronizing
 //!     -h, --help        Prints help information
 //!         --no-gui      Disable text user interface
 //!     -p, --play        Auto-play questions on upload
 //!     -V, --version     Prints version information
-//! 
+//!
 //! OPTIONS:
 //!     -b, --bind <bind>        Address to bind to for the extension. Shouldn't need to be changed [default: 127.0.0.1:53135]
 //!     -t, --target <target>    Path to the target file to synchronize with the IDE
@@ -115,7 +115,11 @@ error_chain! {
         Io(std::io::Error);
         Hotwatch(hotwatch::Error);
         WebSocket(tungstenite::Error);
-        NotificationChannel(std::sync::mpsc::SendError<WorkerNotification>);
+        WorkerNotificationChannel(std::sync::mpsc::SendError<WorkerNotification>);
+        ConnectedNotificationChannel(async_std::channel::SendError<ConnectedNotification>);
+        WorkerMessageChannel(async_std::channel::SendError<WorkerMessage>);
+        ConnectedMessageChannel(async_std::channel::SendError<ConnectedMessage>);
+        ListenMessageChannel(async_std::channel::SendError<ListenMessage>);
     }
 }
 
@@ -165,8 +169,8 @@ impl State {
 async fn handle_accept(
     peer: SocketAddr,
     stream: TcpStream,
-    rx_connected: Arc<Mutex<async_std::sync::Receiver<ConnectedMessage>>>,
-    tx_conn_notification: async_std::sync::Sender<ConnectedNotification>,
+    rx_connected: Arc<Mutex<async_std::channel::Receiver<ConnectedMessage>>>,
+    tx_conn_notification: async_std::channel::Sender<ConnectedNotification>,
 ) -> Result<()> {
     let mut ws_stream = async_tungstenite::accept_async(stream).await?;
 
@@ -189,19 +193,19 @@ async fn handle_accept(
                         match parsed {
                             Ok(msg) => match msg {
                                 ServerMessage::Details { title, question_id } => {
-                                    tx_conn_notification.send(ConnectedNotification::Details { title, question_id }).await;
+                                    tx_conn_notification.send(ConnectedNotification::Details { title, question_id }).await?
                                 }
                                 ServerMessage::Code { code } => {
-                                    tx_conn_notification.send(ConnectedNotification::Code { code }).await;
+                                    tx_conn_notification.send(ConnectedNotification::Code { code }).await?
                                 }
                                 other => {
                                     warn!("unexpected message: {:?}", other);
-                                    ws_stream.send(ServerMessage::Error { message: format!("unexpected message") }.into()).await?;
+                                    ws_stream.send(ServerMessage::Error { message: format!("unexpected message") }.into()).await?
                                 }
                             },
                             Err(err) => {
                                 error!("failed to parse message: {}", err);
-                                ws_stream.send(ServerMessage::Error { message: err.to_string() }.into()).await?;
+                                ws_stream.send(ServerMessage::Error { message: err.to_string() }.into()).await?
                             }
                         }
                     }
@@ -239,8 +243,8 @@ async fn handle_accept(
 async fn accept_connection(
     peer: SocketAddr,
     stream: TcpStream,
-    rx_connected: Arc<Mutex<async_std::sync::Receiver<ConnectedMessage>>>,
-    tx_conn_notification: async_std::sync::Sender<ConnectedNotification>,
+    rx_connected: Arc<Mutex<async_std::channel::Receiver<ConnectedMessage>>>,
+    tx_conn_notification: async_std::channel::Sender<ConnectedNotification>,
 ) -> Result<()> {
     if let Err(e) = handle_accept(peer, stream, rx_connected, tx_conn_notification).await {
         match e {
@@ -317,9 +321,9 @@ pub enum ListenMessage {
 }
 
 async fn run_accept(
-    rx_connected: async_std::sync::Receiver<ConnectedMessage>,
-    mut rx_listen: async_std::sync::Receiver<ListenMessage>,
-    tx_conn_notification: async_std::sync::Sender<ConnectedNotification>,
+    rx_connected: async_std::channel::Receiver<ConnectedMessage>,
+    mut rx_listen: async_std::channel::Receiver<ListenMessage>,
+    tx_conn_notification: async_std::channel::Sender<ConnectedNotification>,
     addr: impl ToSocketAddrs + std::fmt::Display,
 ) -> Result<()> {
     let listener = TcpListener::bind(&addr).await?;
@@ -366,11 +370,11 @@ async fn run_accept(
 
 async fn run_controller(
     state: State,
-    tx_connected: async_std::sync::Sender<ConnectedMessage>,
-    tx_listen: async_std::sync::Sender<ListenMessage>,
-    mut rx_controller: async_std::sync::Receiver<WorkerMessage>,
+    tx_connected: async_std::channel::Sender<ConnectedMessage>,
+    tx_listen: async_std::channel::Sender<ListenMessage>,
+    mut rx_controller: async_std::channel::Receiver<WorkerMessage>,
     tx_notification: std::sync::mpsc::Sender<WorkerNotification>,
-    mut rx_conn_notification: async_std::sync::Receiver<ConnectedNotification>,
+    mut rx_conn_notification: async_std::channel::Receiver<ConnectedNotification>,
 ) -> Result<()> {
     let mut send_code_pending = false;
 
@@ -384,7 +388,7 @@ async fn run_controller(
                         WorkerMessage::FileChanged { code } => {
                             trace!("controller: file changed");
 
-                            tx_connected.send(ConnectedMessage::UpdateCode { code, play: state.opts.lock().await.play }).await;
+                            tx_connected.send(ConnectedMessage::UpdateCode { code, play: state.opts.lock().await.play }).await?;
 
                             trace!("controller: file changed end");
                         }
@@ -398,7 +402,7 @@ async fn run_controller(
                             send_code_pending = download;
 
                             // We are now ready
-                            tx_connected.send(ConnectedMessage::AppReady).await;
+                            tx_connected.send(ConnectedMessage::AppReady).await?;
 
                             // Notify UI
                             tx_notification.send(WorkerNotification::Initialized)?;
@@ -463,10 +467,10 @@ async fn run_controller(
     info!("controller terminating");
 
     // Terminate connected
-    tx_connected.send(ConnectedMessage::Terminate).await;
+    tx_connected.send(ConnectedMessage::Terminate).await?;
 
     // Terminate listener
-    tx_listen.send(ListenMessage::Terminate).await;
+    tx_listen.send(ListenMessage::Terminate).await?;
 
     // Terminate notification
     tx_notification.send(WorkerNotification::Terminate)?;
@@ -478,7 +482,7 @@ fn spawn_worker(
     opts: Arc<Mutex<Opts>>,
 ) -> Result<(
     std::thread::JoinHandle<Result<()>>,
-    async_std::sync::Sender<WorkerMessage>,
+    async_std::channel::Sender<WorkerMessage>,
     std::sync::mpsc::Receiver<WorkerNotification>,
 )> {
     let state = State::new(opts.clone());
@@ -487,11 +491,11 @@ fn spawn_worker(
     let path: PathBuf =
         task::block_on(async { opts.lock().await.target.parent().unwrap().to_owned() });
 
-    let (tx_controller, rx_controller) = async_std::sync::channel(1);
-    let (tx_listen, rx_listen) = async_std::sync::channel(1);
-    let (tx_connected, rx_connected) = async_std::sync::channel(1);
+    let (tx_controller, rx_controller) = async_std::channel::bounded(1);
+    let (tx_listen, rx_listen) = async_std::channel::bounded(1);
+    let (tx_connected, rx_connected) = async_std::channel::bounded(1);
     let (tx_notification, rx_notification) = std::sync::mpsc::channel();
-    let (tx_conn_notification, rx_conn_notification) = async_std::sync::channel(1);
+    let (tx_conn_notification, rx_conn_notification) = async_std::channel::bounded(1);
 
     {
         let opts = opts.clone();
@@ -508,18 +512,20 @@ fn spawn_worker(
                         if PathBuf::from(path) == target {
                             match async_std::fs::read_to_string(&target).await {
                                 Ok(code) => {
-                                    tx_controller
+                                    return tx_controller
                                         .send(WorkerMessage::FileChanged { code })
-                                        .await;
+                                        .await
                                 }
                                 Err(error) => {
-                                    tx_controller
+                                    return tx_controller
                                         .send(WorkerMessage::WatchError { error })
-                                        .await;
+                                        .await
                                 }
                             }
                         }
                     }
+
+                    Ok(())
                 });
             }
             _ => {}
@@ -585,7 +591,7 @@ fn main(opts: Opts) -> Result<()> {
                                 download: opts.lock().await.download,
                             })
                             .await
-                    });
+                    })?;
                 }
                 WorkerNotification::Initialized => {
                     info!("synchronization started");
@@ -614,7 +620,7 @@ fn main(opts: Opts) -> Result<()> {
         fn dialog_initial(
             s: &mut Cursive,
             header: &str,
-            tx_worker: async_std::sync::Sender<WorkerMessage>,
+            tx_worker: async_std::channel::Sender<WorkerMessage>,
         ) {
             s.pop_layer();
             s.add_layer(
@@ -623,13 +629,13 @@ fn main(opts: Opts) -> Result<()> {
                     .button("Upload", {
                         let tx_worker = tx_worker.clone();
                         move |_| {
-                            task::block_on(
-                                tx_worker.send(WorkerMessage::Start { download: false }),
-                            );
+                            task::block_on(tx_worker.send(WorkerMessage::Start { download: false }))
+                                .expect("failed to send start message to worker")
                         }
                     })
                     .button("Download", move |_| {
-                        task::block_on(tx_worker.send(WorkerMessage::Start { download: true }));
+                        task::block_on(tx_worker.send(WorkerMessage::Start { download: true }))
+                            .expect("failed to send start message to worker")
                     })
                     .button("Quit", |s| s.quit()),
             );
@@ -638,7 +644,7 @@ fn main(opts: Opts) -> Result<()> {
         fn dialog_running(
             s: &mut Cursive,
             header: &str,
-            tx_worker: async_std::sync::Sender<WorkerMessage>,
+            tx_worker: async_std::channel::Sender<WorkerMessage>,
             opts: Arc<Mutex<Opts>>,
         ) {
             s.pop_layer();
@@ -665,13 +671,14 @@ fn main(opts: Opts) -> Result<()> {
                 )
                 .title("cg-local-app.rs")
                 .button("Stop sync", move |_| {
-                    task::block_on(tx_worker.send(WorkerMessage::Stop));
+                    task::block_on(tx_worker.send(WorkerMessage::Stop))
+                        .expect("failed to send stop message to worker")
                 })
                 .button("Quit", |s| s.quit()),
             );
         }
 
-        let mut s = Cursive::default();
+        let mut s = cursive::default().into_runner();
         s.add_global_callback('q', |s| s.quit());
 
         dialog_waiting(&mut s);
@@ -717,7 +724,7 @@ fn main(opts: Opts) -> Result<()> {
     }
 
     // Terminate worker
-    task::block_on(tx_worker.send(WorkerMessage::Terminate));
+    task::block_on(tx_worker.send(WorkerMessage::Terminate))?;
     join_handle.join().unwrap()?;
 
     Ok(())
