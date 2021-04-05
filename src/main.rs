@@ -26,7 +26,7 @@
 //! ## Usage
 //!
 //! ```
-//! cg-local-app 0.1.1
+//! cg-local-app 0.1.2
 //! Vincent Tavernier <vince.tavernier@gmail.com>
 //! Rust application for CG Local
 //!
