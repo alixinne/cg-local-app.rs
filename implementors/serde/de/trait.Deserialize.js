@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["cg_local_app"] = [{"text":"impl&lt;'de&gt; <a class=\"trait\" href=\"https://docs.rs/serde/1.0.125/serde/de/trait.Deserialize.html\" title=\"trait serde::de::Deserialize\">Deserialize</a>&lt;'de&gt; for <a class=\"enum\" href=\"cg_local_app/enum.ServerMessage.html\" title=\"enum cg_local_app::ServerMessage\">ServerMessage</a>","synthetic":false,"types":["cg_local_app::ServerMessage"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
