@@ -1,6 +1,11 @@
-[![Crates.io](https://img.shields.io/crates/v/cg-local-app)](https://crates.io/crates/cg-local-app) [![Build Status](https://travis-ci.com/vtavernier/cg-local-app.rs.svg?branch=master)](https://travis-ci.com/vtavernier/cg-local-app.rs) [![Build Status](https://ci.appveyor.com/api/projects/status/github/vtavernier/cg-local-app.rs?branch=master&svg=true)](https://ci.appveyor.com/project/vtavernier/cg-local-app.rs/branch/master) ![Crates.io](https://img.shields.io/crates/l/cg-local-app) [![Libraries.io dependency status for GitHub repo](https://img.shields.io/librariesio/github/vtavernier/cg-local-app.rs)](https://libraries.io/github/vtavernier/cg-local-app.rs)
+# [cg-local-app](https://github.com/vtavernier/cg-local-app.rs)
 
-# cg-local-app
+[![Crates.io](https://img.shields.io/crates/v/cg-local-app)](https://crates.io/crates/cg-local-app)
+[![Run tests](https://github.com/vtavernier/cg-local-app.rs/workflows/Run%20tests/badge.svg?branch=master)](https://github.com/vtavernier/cg-local-app.rs/actions)
+[![GitHub release](https://img.shields.io/github/v/release/vtavernier/cg-local-app.rs)](https://github.com/vtavernier/cg-local-app.rs/releases)
+![Maintenance](https://img.shields.io/badge/maintenance-activly--developed-brightgreen.svg)
+[![Libraries.io dependency status for GitHub repo](https://img.shields.io/librariesio/github/vtavernier/cg-local-app.rs)](https://libraries.io/github/vtavernier/cg-local-app.rs)
+[![License](https://img.shields.io/github/license/vtavernier/cg-local-app.rs)](LICENSE)
 
 Rust implementation of the client-side application for the [CG
 Local](https://www.codingame.com/forum/t/cg-local/10359) extension. This is a drop-in
