@@ -1,11 +1,11 @@
-# [cg-local-app](https://github.com/vtavernier/cg-local-app.rs)
+# [cg-local-app](https://github.com/alixinne/cg-local-app.rs)
 
 [![Crates.io](https://img.shields.io/crates/v/cg-local-app)](https://crates.io/crates/cg-local-app)
-[![Run tests](https://github.com/vtavernier/cg-local-app.rs/workflows/Run%20tests/badge.svg?branch=master)](https://github.com/vtavernier/cg-local-app.rs/actions)
-[![GitHub release](https://img.shields.io/github/v/release/vtavernier/cg-local-app.rs)](https://github.com/vtavernier/cg-local-app.rs/releases)
+[![Run tests](https://github.com/alixinne/cg-local-app.rs/workflows/Run%20tests/badge.svg?branch=master)](https://github.com/alixinne/cg-local-app.rs/actions)
+[![GitHub release](https://img.shields.io/github/v/release/alixinne/cg-local-app.rs)](https://github.com/alixinne/cg-local-app.rs/releases)
 ![Maintenance](https://img.shields.io/badge/maintenance-activly--developed-brightgreen.svg)
-[![Libraries.io dependency status for GitHub repo](https://img.shields.io/librariesio/github/vtavernier/cg-local-app.rs)](https://libraries.io/github/vtavernier/cg-local-app.rs)
-[![License](https://img.shields.io/github/license/vtavernier/cg-local-app.rs)](LICENSE)
+[![Libraries.io dependency status for GitHub repo](https://img.shields.io/librariesio/github/alixinne/cg-local-app.rs)](https://libraries.io/github/alixinne/cg-local-app.rs)
+[![License](https://img.shields.io/github/license/alixinne/cg-local-app.rs)](LICENSE)
 
 Rust implementation of the client-side application for the [CG
 Local](https://www.codingame.com/forum/t/cg-local/10359) extension. This is a drop-in
@@ -16,7 +16,7 @@ works with the original [browser extension](https://github.com/jmerle/cg-local-e
 
 #### Pre-built packages
 
-Check the [releases](https://github.com/vtavernier/cg-local-app.rs/releases) for binaries from
+Check the [releases](https://github.com/alixinne/cg-local-app.rs/releases) for binaries from
 your operating system.
 
 #### Using cargo
@@ -28,7 +28,7 @@ cargo install --force cg-local-app
 #### From source
 
 ```bash
-git clone https://github.com/vtavernier/cg-local-app.rs.git && cd cg-local-app.rs
+git clone https://github.com/alixinne/cg-local-app.rs.git && cd cg-local-app.rs
 cargo install --path .
 ```
 
@@ -36,7 +36,7 @@ cargo install --path .
 
 ```rust
 cg-local-app 0.1.2
-Vincent Tavernier <vince.tavernier@gmail.com>
+Alixinne <alixinne@pm.me>
 Rust application for CG Local
 
 USAGE:

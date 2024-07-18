@@ -1,13 +1,13 @@
 [package]
 name = "cg-local-app"
 version = "0.1.2"
-authors = ["Vincent Tavernier <vince.tavernier@gmail.com>"]
+authors = ["Alixinne <alixinne@pm.me>"]
 edition = "2018"
 description = "Rust application for CG Local"
 documentation = "https://docs.rs/cg-local-app/"
 readme = "README.md"
-homepage = "https://github.com/vtavernier/cg-local-app.rs"
-repository = "https://github.com/vtavernier/cg-local-app.rs.git"
+homepage = "https://github.com/alixinne/cg-local-app.rs"
+repository = "https://github.com/alixinne/cg-local-app.rs.git"
 license = "MIT"
 keywords = []
 categories = []

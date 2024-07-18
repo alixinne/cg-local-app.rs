@@ -7,7 +7,7 @@
 //!
 //! ### Pre-built packages
 //!
-//! Check the [releases](https://github.com/vtavernier/cg-local-app.rs/releases) for binaries from
+//! Check the [releases](https://github.com/alixinne/cg-local-app.rs/releases) for binaries from
 //! your operating system.
 //!
 //! ### Using cargo
@@ -19,7 +19,7 @@
 //! ### From source
 //!
 //! ```bash
-//! git clone https://github.com/vtavernier/cg-local-app.rs.git && cd cg-local-app.rs
+//! git clone https://github.com/alixinne/cg-local-app.rs.git && cd cg-local-app.rs
 //! cargo install --path .
 //! ```
 //!
@@ -27,7 +27,7 @@
 //!
 //! ```
 //! cg-local-app 0.1.2
-//! Vincent Tavernier <vince.tavernier@gmail.com>
+//! Alixinne <alixinne@pm.me>
 //! Rust application for CG Local
 //!
 //! USAGE:
